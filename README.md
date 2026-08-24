@@ -47,7 +47,7 @@ The order of entries can be changed freely and will be reflected in the style se
     // Offstyle DB style ID
     "190"
     {
-        // Display name shown in the style selection menu and WR list/info title
+        // Display name shown in the style selection, record list, record info and the Top Left HUD
         "style_name"    "Normal"
 
 		// Maps the offstyle DB style (190) to the server style (0) from shavit-styles.cfg for the Top Left HUD display
