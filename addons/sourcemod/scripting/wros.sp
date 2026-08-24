@@ -400,7 +400,7 @@ public void OnConfigsExecuted()
 
 public void Shavit_OnReplayStart(int ent, int type, bool delay_elapsed)
 {
-	if(gB_DirExists)
+	if(gB_DirExists && !gB_ShavitStopReplay)
 	{
 		int iStarter = Shavit_GetReplayStarter(ent);
 		if(iStarter != 0)
@@ -412,7 +412,7 @@ public void Shavit_OnReplayStart(int ent, int type, bool delay_elapsed)
 
 public void Shavit_OnReplayEnd(int ent, int type, bool actually_finished)
 {
-	if(gB_DirExists)
+	if(gB_DirExists && !gB_ShavitStopReplay)
 	{
 		int iStarter = Shavit_GetReplayStarter(ent);
 		if(iStarter != 0)
