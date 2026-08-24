@@ -84,6 +84,18 @@ See [Overriding Command Access](https://wiki.alliedmods.net/Overriding_Command_A
 
 ---
 
+## Include dependencies
+
+All required includes are already bundled in this repo for compiling. Listed here in case you want to fetch newer versions yourself:
+
+- [shavit/*](https://github.com/shavitush/bhoptimer) — also provides the `convar_class` include
+- [ripext](https://github.com/ErikMinekus/sm-ripext)
+- [SteamWorks](https://forums.alliedmods.net/showthread.php?t=229556)
+- [morecolors](https://github.com/DoctorMcKay/sourcemod-plugins/blob/master/scripting/include/morecolors.inc)
+- [srcwr/floppy](https://github.com/mariokeks/srcwrfloppy)
+
+---
+
 ## Contributing
 
 If you find a bug or have a suggestion, feel free to [open an issue](https://github.com/mariokeks/wros/issues).
