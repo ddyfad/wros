@@ -17,7 +17,6 @@
  */
 
 // TODO?
-// - New setting to hide the records with no replays in !wrosr?
 // - Native to automatically download (and cache) a replay file?
 // - Maybe LOOPING replay bot?
 // - Pretty sure i forgot something.. ( ͡° ͜ʖ ͡°)
@@ -64,6 +63,7 @@ enum
 	Flag_PurgeReplays,
 	Flag_ReplaceReplay,
 	Flag_UseSteamWorks,
+	Flag_HideWithoutReplay,
 }
 
 enum 
@@ -201,7 +201,8 @@ public void OnPluginStart()
 		..."\n2 = Execute 'sm_replay' for the player after replay start"
 		..."\n4 = Purge \".replays\" files inside of os_dl_directory on map start (Does not affect subdirectories)"
 		..."\n8 = Replace a running replay bot instead of notifying the player"
-		..."\n16 = Use the SteamWorks extension for API requests (Recommended for windows)", 0, true, 0.0);
+		..."\n16 = Use the SteamWorks extension for API requests (Recommended for windows)"
+		..."\n32 = Hide records without replay in !wrosr", 0, true, 0.0);
 	gCV_ReCache = new Convar("os_recache", "2", "Re-cache a map & style"
 		..."\n0 = Disabled"
 		..."\n1 = Only when a WR is being broken"
@@ -916,11 +917,14 @@ void BuildReplayMenu(int client, int first_item=0)
 	{
 		records.GetArray(i, record, sizeof(record));
 
-		FormatSeconds(record.time, sTime, sizeof(sTime));
-		FormatDiff(client, record.time, record.wr_time, 3, sDiff, sizeof(sDiff));
+		if(!IsFlagEnabled(Flag_HideWithoutReplay) || (record.replay_ref[0] != '\0'))
+		{
+			FormatSeconds(record.time, sTime, sizeof(sTime));
+			FormatDiff(client, record.time, record.wr_time, 3, sDiff, sizeof(sDiff));
 
-		FormatEx(sDisplay, sizeof(sDisplay), "%T", "BuildReplayMenu_Item", client, i+1, record.name, sTime, sDiff);
-		menu.AddItem(record._id, sDisplay, (record.replay_ref[0] != '\0') ? ITEMDRAW_DEFAULT : ITEMDRAW_DISABLED);
+			FormatEx(sDisplay, sizeof(sDisplay), "%T", "BuildReplayMenu_Item", client, i+1, record.name, sTime, sDiff);
+			menu.AddItem(record._id, sDisplay, (record.replay_ref[0] != '\0') ? ITEMDRAW_DEFAULT : ITEMDRAW_DISABLED);
+		}
 	}
 
 	if(menu.ItemCount == 0)
