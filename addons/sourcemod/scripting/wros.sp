@@ -153,6 +153,7 @@ bool gB_DirExists = false;
 bool gB_MapChooser = false;
 bool gB_ReplayPlayback = false;
 bool gB_FloppyAsyncLoad = false;
+bool gB_ShavitStopReplay = false; // This should include Shavit_GetClientReplayBot
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -222,10 +223,11 @@ public void OnPluginStart()
 		..."\n2 = Show for every style, fall back to default record when current style has no record"
 		..."\n3 = Always show default style record regardless of current style", 0, true, 0.0, true, 3.0);	
 	gCV_ReplayType = new Convar("os_replay_type", "2", "Replay type to use when starting a replay bot"
-		..."\n0 = Central (Not supported)"
+		..."\n-1 = Automatic (Make sure your bhoptimer supports this)"
+		..."\n0 = Central"
 		..."\n1 = Looping (Just don't)"
 		..."\n2 = Dynamic"
-		..."\n3 = Prop", 0, false, _, true, 3.0);	
+		..."\n3 = Prop", 0, false, _, true, 3.0);
 	Convar.AutoExecConfig("wros");
 
 	RegConsoleCmd("sm_wrossettings", Command_Settings, "Opens the wros settings menu.");
@@ -250,6 +252,7 @@ public void OnPluginStart()
 	gB_MapChooser = LibraryExists("shavit-mapchooser");
 	gB_ReplayPlayback = LibraryExists("shavit-replay-playback");
 	gB_FloppyAsyncLoad = (GetFeatureStatus(FeatureType_Native, "SRCWRFloppy_AsyncLoadReplayFrames") == FeatureStatus_Available);
+	gB_ShavitStopReplay = (GetFeatureStatus(FeatureType_Native, "Shavit_StopReplay") == FeatureStatus_Available);
 }
 
 public void OnPluginEnd()
@@ -271,6 +274,7 @@ public void OnLibraryAdded(const char[] name)
 	if(StrEqual(name, "shavit-replay-playback"))
 	{
 		gB_ReplayPlayback = true;
+		gB_ShavitStopReplay = (GetFeatureStatus(FeatureType_Native, "Shavit_StopReplay") == FeatureStatus_Available);
 	}
 	else if(StrEqual(name, "shavit-mapchooser"))
 	{
@@ -1644,30 +1648,9 @@ void DownloadFinished(int client, bool success, download_queue_t queue, float ti
 
 bool StartReplay(int client, int style, const char[] path, const char[] replay_name)
 {
-	// Check if the player already has a running bot...
-	if(gI_CurrentReplayBot[client] != 0 && Shavit_IsReplayEntity(gI_CurrentReplayBot[client]))
+	if(!StopReplay(client))
 	{
-		if(!IsFlagEnabled(Flag_ReplaceReplay))
-		{
-			CPrintToChat(client, "%T", "Chat_Replay_Running", client);
-			return false;
-		}
-		else
-		{
-			// Thats not really nice.. Shavit_StopReplay where?
-			int iType = Shavit_GetReplayBotType(gI_CurrentReplayBot[client]);
-			switch(iType)
-			{
-				// I am not supporting kicking the central replay bot which wont work in the first place.. at least for now..
-				case Replay_Central: 
-				{
-					CPrintToChat(client, "%T", "Chat_Replay_Running", client);
-					return false;
-				}
-				case Replay_Dynamic: KickClientEx(gI_CurrentReplayBot[client], "You shall not stay!");
-				case Replay_Prop: RemoveEdict(gI_CurrentReplayBot[client]); // Our mysterious dying replay props
-			}
-		}
+		return false;
 	}
 
 	bool bFound = false;
@@ -2112,6 +2095,53 @@ public int MenuHandler_Settings(Menu menu, MenuAction action, int client, int pa
 		delete menu;
 	}
 	return 0;
+}
+
+bool StopReplay(int client)
+{
+#if defined CUSTOMBUILD
+	return true;
+#endif
+	int iBot = gB_ShavitStopReplay ? Shavit_GetClientReplayBot(client) : gI_CurrentReplayBot[client];
+	if(iBot == 0 || (!gB_ShavitStopReplay && !Shavit_IsReplayEntity(iBot)))
+	{
+		return true; // No running bot 
+	}
+
+	if(!IsFlagEnabled(Flag_ReplaceReplay))
+	{
+		CPrintToChat(client, "%T", "Chat_Replay_Running", client);
+		return false;
+	}
+	else
+	{
+		if(gB_ShavitStopReplay)
+		{
+			Shavit_StopReplay(gI_CurrentReplayBot[client]);
+		}
+		else
+		{
+			int iType = Shavit_GetReplayBotType(gI_CurrentReplayBot[client]);
+			switch(iType)
+			{
+				// I am not supporting kicking the central replay bot which wont work in the first place..
+				case Replay_Central: 
+				{
+					CPrintToChat(client, "%T", "Chat_Replay_Running", client);
+					return false;
+				}
+				case Replay_Dynamic: 
+				{
+					KickClientEx(gI_CurrentReplayBot[client], "You shall not stay!");
+				}
+				case Replay_Prop: 
+				{
+					RemoveEdict(gI_CurrentReplayBot[client]); // Our mysterious dying replay props
+				}
+			}
+		}
+	}
+	return true;
 }
 
 void ClearFrameCache(frame_cache_t cache)
