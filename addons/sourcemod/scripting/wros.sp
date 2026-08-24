@@ -217,10 +217,10 @@ public void OnPluginStart()
 		..."\n32 = Always show the style names"	
 		..."\n64 = Show OS time for all styles except default (Normal)", 0, true, 0.0);	
 	gCV_DefaultHUDMode = new Convar("os_default_hud_mode", "1", "Default hud mode"
-		..."\nHUDMode_OnlyOnDefault     = 0, // Only show when on default style"
-		..."\nHUDMode_AllStyles       = 1, // Show for every style"
-		..."\nHUDMode_AllWithFallback = 2, // Show for every style, fall back to default record when current style has no record"
-		..."\nHUDMode_OnlyShowDefault     = 3, // Always show default style record regardless of current style", 0, true, 0.0, true, 3.0);	
+		..."\n0 = Only show when on default style"
+		..."\n1 = Show for every style"
+		..."\n2 = Show for every style, fall back to default record when current style has no record"
+		..."\n3 = Always show default style record regardless of current style", 0, true, 0.0, true, 3.0);	
 	gCV_ReplayType = new Convar("os_replay_type", "2", "Replay type to use when starting a replay bot"
 		..."\n0 = Central (Not supported)"
 		..."\n1 = Looping (Just don't)"
