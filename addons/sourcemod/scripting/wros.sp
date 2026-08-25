@@ -1702,10 +1702,13 @@ void ReplayLoaded_Callback(bool loaded, DataPack data, frame_cache_t cache, repl
 	replay_cache_t aCache; data.ReadCellArray(aCache, sizeof(replay_cache_t));
 	delete data;
 
-	if(!loaded)
+	if(!client || !loaded)
 	{
 		ClearFrameCache(cache);
-		CPrintToChat(client, "%T", "Chat_Replay_Unreadable", client);
+		if(client)
+		{
+			CPrintToChat(client, "%T", "Chat_Replay_Unreadable", client);
+		}
 		return;
 	}
 
@@ -1714,6 +1717,8 @@ void ReplayLoaded_Callback(bool loaded, DataPack data, frame_cache_t cache, repl
 	// Override the original values with our cached data
 	aCache.aFrameCache.sReplayName = sReplayName;
 	aCache.aHeader.iStyle = iStyle;
+
+	// Should we compare the cache.aFrames.Length with the header.iFrameCount+header.iPreFrames+header.iPostFrames and re-download the file if something missmatches?
 	
 	int bot = Shavit_StartReplayFromFrameCache(aCache.aHeader.iStyle, aCache.aHeader.iTrack, -1.0, client, -1, gCV_ReplayType.IntValue, false, aCache.aFrameCache);
 
