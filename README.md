@@ -23,6 +23,7 @@ A [SourceMod](https://www.sourcemod.net/) plugin that integrates with the [Offst
 - [sm-ripext](https://github.com/ErikMinekus/sm-ripext) — HTTP extension for API requests and replay downloading
 - [SteamWorks](https://forums.alliedmods.net/showthread.php?t=229556) *(optional)* — Alternative HTTP extension for API requests, recommended on Windows [(sm-ripext issue)](https://github.com/ErikMinekus/sm-ripext/issues/63)
 - [shavit-bhoptimer](https://github.com/shavitush/bhoptimer) *(optional)* — For HUD and replay playback integration
+- [srcwrfloppy](https://github.com/mariokeks/srcwrfloppy) *(optional)* — For asynchronous replay loading
 
 ---
 
