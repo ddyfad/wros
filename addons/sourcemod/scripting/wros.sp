@@ -51,7 +51,7 @@ public Plugin myinfo =
 	name = "Offstyle World Record",
 	author = "rtldg & Nairda, ƤɾσƅƖeɱ?",
 	description = "Grabs WRs from the Offstyle DB API",
-	version = "0.8.9"
+	version = "0.8.10"
 }
 
 // #define CUSTOM_BUILD // Enables custom stuff that are not part of the public build of shavits bhoptimer
@@ -569,31 +569,6 @@ void ChooseStyleMenu(int client)
 	}
 }
 
-void GetRecordCount(WROS_Menu type, const char[] map, int style, char[] output, int maxlen)
-{
-	ArrayList aRecords;
-	char sKey[PLATFORM_MAX_PATH];
-	FormatKey(map, style, sKey, sizeof(sKey));
-	if(!gSM_Maps.GetValue(sKey, aRecords))
-	{
-		strcopy(output, maxlen, "?");
-	}
-	else
-	{
-		if(type == WROS_Menu_Replays)
-		{
-			int iReplays;
-			gSM_ReplayCount.GetValue(sKey, iReplays);
-			FormatEx(output, maxlen, "%d/%d", iReplays, aRecords ? aRecords.Length : 0);
-			// IntToString(iReplays, output, maxlen);
-		}
-		else
-		{
-			IntToString(aRecords ? aRecords.Length : 0, output, maxlen);
-		}
-	}
-}
-
 public void MenuHandler_ChooseStyle(Menu menu, MenuAction action, int client, int param2)
 {
 	if(action != MenuAction_End && !Forward_OnMenuCallback(client, WROS_Menu_Styles|gI_LastMenu[client], menu, action, param2))
@@ -909,8 +884,8 @@ void BuildReplayMenu(int client, int first_item=0)
 	gA_Styles.GetArray(gA_Styles.FindValue(gI_LastStyle[client], WROS_Style_Offstyle), aStyle);
 
 	Menu menu = new Menu(MenuHandler_BuildReplayMenu);
-	menu.SetTitle("%T\n ", "BuildReplayMenu_Title", client, gS_ClientMap[client], maxrecords, aStyle.sStyleName, totalrecords);
 
+	int iRecords = 0;
 	WROS_RecordInfo record;
 	char sDisplay[128], sTime[32], sDiff[32];
 	for (int i = 0; i < maxrecords; i++)
@@ -919,6 +894,8 @@ void BuildReplayMenu(int client, int first_item=0)
 
 		if(!IsFlagEnabled(Flag_HideWithoutReplay) || (record.replay_ref[0] != '\0'))
 		{
+			iRecords++;
+
 			FormatSeconds(record.time, sTime, sizeof(sTime));
 			FormatDiff(client, record.time, record.wr_time, 3, sDiff, sizeof(sDiff));
 
@@ -934,6 +911,7 @@ void BuildReplayMenu(int client, int first_item=0)
 	}
 
 	menu.ExitBackButton = (gA_Styles.Length > 1) ? true : (gS_LastSearch[client][0] != '\0');
+	menu.SetTitle("%T\n ", "BuildReplayMenu_Title", client, gS_ClientMap[client], iRecords, aStyle.sStyleName, totalrecords);
 	
 	if(Forward_OnMenuMade(client, WROS_Menu_Replays, menu))
 	{
@@ -1680,6 +1658,8 @@ bool StartReplay(int client, int style, const char[] path, const char[] replay_n
 
 	if(aCache.aFrameCache.aFrames == null)
 	{
+		// Do we need a load queue...? the extension only loads one replay at a time
+		// So in case we load multiple replays at once it finishes after another and only adds up unnecessary loads hm...
 		SRCWRFloppy_LoadReplayCache(ReplayLoaded_Callback, hPack, path, !gB_FloppyAsyncLoad);
 	}
 	else
@@ -1900,6 +1880,31 @@ int GetCachedTotalRecords(const char[] map, int style)
 	int iTotalRecords = -1;
 	gSM_MapsTotalRecords.GetValue(sKey, iTotalRecords);
 	return iTotalRecords;
+}
+
+void GetRecordCount(WROS_Menu type, const char[] map, int style, char[] output, int maxlen)
+{
+	ArrayList aRecords;
+	char sKey[PLATFORM_MAX_PATH];
+	FormatKey(map, style, sKey, sizeof(sKey));
+	if(!gSM_Maps.GetValue(sKey, aRecords))
+	{
+		strcopy(output, maxlen, "?");
+	}
+	else
+	{
+		if(type == WROS_Menu_Replays)
+		{
+			int iReplays;
+			gSM_ReplayCount.GetValue(sKey, iReplays);
+			FormatEx(output, maxlen, "%d/%d", iReplays, aRecords ? aRecords.Length : 0);
+			// IntToString(iReplays, output, maxlen);
+		}
+		else
+		{
+			IntToString(aRecords ? aRecords.Length : 0, output, maxlen);
+		}
+	}
 }
 
 void FormatKey(const char[] map, int style, char[] output, int maxlen)
