@@ -223,8 +223,8 @@ public void OnPluginStart()
 		..."\n1 = Show for every style"
 		..."\n2 = Show for every style, fall back to default record when current style has no record"
 		..."\n3 = Always show default style record regardless of current style", 0, true, 0.0, true, 3.0);	
-	gCV_ReplayType = new Convar("os_replay_type", "2", "Replay type to use when starting a replay bot\nUse Dynamic on older bhoptimer versions without native StopReplay support"
-		..."\n-1 = Automatic (Make sure your bhoptimer supports this)"
+	gCV_ReplayType = new Convar("os_replay_type", "2", "Replay type to use when starting a replay bot\nUse Dynamic on older bhoptimer versions without native Automatic type or StopReplay support"
+		..."\n-1 = Automatic"
 		..."\n0 = Central"
 		..."\n1 = Looping (Just don't)"
 		..."\n2 = Dynamic"
