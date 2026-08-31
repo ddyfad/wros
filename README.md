@@ -2,10 +2,6 @@
 
 A [SourceMod](https://www.sourcemod.net/) plugin that integrates with the [Offstyle](https://offstyles.net/) API to display and browse World Records directly on your server. Players can view ranked record lists, inspect detailed run info, and watch downloaded replays, all from an in-game menu. Based on [WRSJ](https://github.com/rtldg/wrsj).
 
----
-> **Note:** Replay downloading is currently broken. Proper support is planned and will be implemented once available.
----
-
 ## Features
 
 - **Offstyle WR browser** — Browse world records for the current map or any other map by passing a map name after the command (e.g. `!wros [mapname]`). Supports partial map names using the server's map list as reference (from `[shavit] MapChooser` when loaded, otherwise from `mapcycle.txt`)
