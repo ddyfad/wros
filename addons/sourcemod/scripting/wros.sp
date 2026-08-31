@@ -183,7 +183,7 @@ public void OnPluginStart()
 
 	// gCV_APIKey = new Convar("os_api_key", "", "Replace with your unique api key.", FCVAR_PROTECTED);
 	gCV_DLDirectory = new Convar("os_dl_directory", "{SM}/data/replaybot/wros", "Directory for the temporary replay files.\n{SM} - SourceMod folder. If this variable isn't included, you will have to specify the full path.\nLeave empty to disable replay feature.\nMay require a map change or server restart to fully take effect.\nDoes not create parent directories automatically.");
-	gCV_DLUrl = new Convar("os_dl_url", "https://offstyles.tommyy.dev/api/replay?id=", "Download URL. Can be changed for testing.", FCVAR_PROTECTED);
+	gCV_DLUrl = new Convar("os_dl_url", "https://offstyles.net/api/replay?id=", "Download URL. Can be changed for testing.", FCVAR_PROTECTED);
 	gCV_DLRetryCount = new Convar("os_dl_retry_count", "1", "How many times to retry a failed replay download before giving up.", 0, true, 0.0, true, 5.0);
 	gCV_APIUrl = new Convar("os_api_url", "https://offstyles.net/api/times?map={map}&style={style}&sort=Fastest&best=true&page=1&limit=50", "API endpoint for fetching records."
 		..."\nPlaceholders: {map} = map name, {style} = style ID."
