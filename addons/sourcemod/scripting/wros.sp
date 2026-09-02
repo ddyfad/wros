@@ -73,6 +73,11 @@ enum
 	ReCache_All
 }
 
+enum
+{
+	Request_Records
+}
+
 enum struct replay_cache_t 
 {
 	replay_header_t aHeader;
@@ -1032,14 +1037,14 @@ ArrayList CacheMap(char mapname[PLATFORM_MAX_PATH], JSONArray json, int style, i
 void RIP_Request_Callback(HTTPResponse response, DataPack pack, const char[] error)
 {
 	bool bSuccess = (response.Status == HTTPStatus_OK);
-	HandleRequest(pack, bSuccess ? view_as<JSONObject>(response.Data) : null, bSuccess, false, response.Status, error);
+	HandleResponse(pack, bSuccess ? view_as<JSONObject>(response.Data) : null, bSuccess, false, response.Status, error);
 }
 
 public void SteamWorks_Request_Callback(Handle request, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode, DataPack pack)
 {
 	if (bFailure || !bRequestSuccessful || eStatusCode != k_EHTTPStatusCode200OK)
 	{
-		HandleRequest(pack, null, false, true, eStatusCode);
+		HandleResponse(pack, null, false, true, eStatusCode);
 		return;
 	}
 
@@ -1049,13 +1054,20 @@ public void SteamWorks_Request_Callback(Handle request, bool bFailure, bool bReq
 
 void SteamWorks_RequestBody_Callback(const char[] data, DataPack pack)
 {
-	HandleRequest(pack, JSONObject.FromString(data), true, true);
+	HandleResponse(pack, JSONObject.FromString(data), true, true);
 }
 
-void HandleRequest(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status = -1, const char[] error = "")
+void HandleResponse(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status = -1, const char[] error = "")
 {
 	pack.Reset();
+	switch(pack.ReadCell())
+	{
+		case Request_Records: HandleRequest(pack, json_response, success, steamworks, status, error);
+	}
+}
 
+void HandleRequest(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status, const char[] error)
+{
 	int client = GetClientFromSerial(pack.ReadCell());
 	char mapname[PLATFORM_MAX_PATH];
 	pack.ReadString(mapname, sizeof(mapname));
@@ -1132,6 +1144,7 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	}
 
 	DataPack pack = new DataPack();
+	pack.WriteCell(Request_Records);
 	pack.WriteCell(serial);
 	pack.WriteString(mapname);
 	pack.WriteCell(style);
@@ -1144,6 +1157,11 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	ReplaceStringEx(sURL, sizeof(sURL), "{map}", mapname);
 	ReplaceStringEx(sURL, sizeof(sURL), "{style}", sStyleID);
 
+	return SendRequest(sURL, pack);
+}
+
+bool SendRequest(char sURL[230], DataPack pack)
+{
 	if(!IsFlagEnabled(Flag_UseSteamWorks))
 	{
 		HTTPRequest http = new HTTPRequest(sURL);
@@ -1167,7 +1185,7 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	)
 	{
 		delete hRequest;
-		HandleRequest(pack, null, false, true, _, "Failed to setup & send HTTP request");
+		HandleResponse(pack, null, false, true, _, "Failed to setup & send HTTP request");
 		return false;
 	}
 
