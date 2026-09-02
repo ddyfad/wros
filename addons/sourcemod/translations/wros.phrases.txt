@@ -10,6 +10,11 @@
 		"#format"	"{1:s},{2:s},{3:s}"
 		"en"		"OS: {1} ({2}) ({3})"
 	}
+	"OnTopLeftHUD_PB"
+	{
+		"#format"	"{1:s},{2:d}"
+		"en"		"OS PB: {1} (#{2})"
+	}
 	"Difference_WR"
 	{
 		"en"		"World Record"
@@ -100,6 +105,10 @@
 	"SettingItem_TopLeftHUD"
 	{
 		"en"		"Show WROS in Top Left HUD"
+	}
+	"SettingItem_TopLeftHUD_PB"
+	{
+		"en"		"Show your OS personal best in Top Left HUD"
 	}
 	"SettingItem_AfterTopLeft"
 	{
