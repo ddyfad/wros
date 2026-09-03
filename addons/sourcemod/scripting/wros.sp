@@ -51,7 +51,7 @@ public Plugin myinfo =
 	name = "Offstyle World Record",
 	author = "rtldg & Nairda, ƤɾσƅƖeɱ?",
 	description = "Grabs WRs from the Offstyle DB API",
-	version = "0.8.10"
+	version = "0.8.11"
 }
 
 // #define CUSTOM_BUILD // Enables custom stuff that are not part of the public build of shavits bhoptimer
@@ -71,6 +71,20 @@ enum
 	ReCache_None,
 	ReCache_WR,
 	ReCache_All
+}
+
+enum
+{
+	Request_Records,
+	Request_PB
+}
+
+enum struct pb_cache_t
+{
+	float fTime;
+	int iRank;
+	float fCachedTime;
+	bool bPending;
 }
 
 enum struct replay_cache_t 
@@ -99,6 +113,7 @@ enum
 	Setting_AfterTopLeft = 2,
 	Setting_AlwaysShowStyleNames = 5,
 	Setting_DontShowForDefault,
+	Setting_TopLeftHUD_PB,
 }
 int gI_ClientSettings[MAXPLAYERS+1];
 Cookie gH_Cookie;
@@ -117,6 +132,7 @@ Convar gCV_DLUrl;
 Convar gCV_DLDirectory;
 Convar gCV_DLRetryCount;
 Convar gCV_APIUrl;
+Convar gCV_APIPBUrl;
 Convar gCV_WRCount;
 Convar gCV_CacheTime;
 Convar gCV_DefaultStyle;
@@ -134,6 +150,7 @@ StringMap gSM_MapsTotalRecords;
 StringMap gSM_RecordInfo; // Lets duplicate our data so we can search easier :3
 StringMap gSM_ReplayCount;
 StringMap gSM_ReplayCache;
+StringMap gSM_PBs;
 ArrayList gA_Styles;
 ArrayList gA_MapList;
 
@@ -192,6 +209,8 @@ public void OnPluginStart()
 		..."\nbest - Whether to show only the best record of a player or all records from a player"
 		..."\nsort - Sort type (Fastest/Slowest/Newest/Oldest)"
 		..."\nFull docs: https://offstyles.net/api/docs/#/Record/get_times", FCVAR_PROTECTED);	
+	gCV_APIPBUrl = new Convar("os_api_pb_url", "https://offstyles.net/api/times?map={map}&style={style}&steamid={steamid}&sort=Fastest&best=true&page=1&size=1", "API endpoint for fetching the personal best of a player for the Top Left HUD."
+		..."\nPlaceholders: {map} = map name, {style} = style ID, {steamid} = SteamID64 of the player.", FCVAR_PROTECTED);
 	gCV_WRCount = new Convar("os_api_wr_count", "50", "How many top times should be shown in the !wros menu.\nCannot exceed the limit set in os_api_url.", 0, true, 0.0);
 	gCV_CacheTime = new Convar("os_api_cache_time", "666.0", "How many seconds to cache a map from the Offstyle API.", 0, true, 5.0);
 	gCV_DefaultStyle = new Convar("os_default_style", "190", "(Offstyle) Style ID to use as the default for the Top Left HUD.", 0, true, 0.0);
@@ -213,11 +232,12 @@ public void OnPluginStart()
 		..."\n1 = Steam2 (STEAM_1:1:4153990)"
 		..."\n2 = Steam3 ([U:1:8307981])"
 		..."\n3 = SteamID64 (76561197968573709)", 0, true, 1.0, true, 3.0);
-	gCV_DefaultSettings = new Convar("os_default_settings", "5", "Default settings as a bitflag"
+	gCV_DefaultSettings = new Convar("os_default_settings", "133", "Default settings as a bitflag"
 		..."\n1 = Enable the OS time (Top Left HUD)"
 		..."\n4 = Show the OS time after the WR/PB lines"
 		..."\n32 = Always show the style names"	
-		..."\n64 = Show OS time for all styles except default (Normal)", 0, true, 0.0);	
+		..."\n64 = Show OS time for all styles except default (Normal)"
+		..."\n128 = Show the OS personal best of the player (Top Left HUD)", 0, true, 0.0);	
 	gCV_DefaultHUDMode = new Convar("os_default_hud_mode", "1", "Default hud mode"
 		..."\n0 = Only show when on default style"
 		..."\n1 = Show for every style"
@@ -242,6 +262,7 @@ public void OnPluginStart()
 	gSM_MapsTotalRecords = new StringMap();
 	gSM_RecordInfo = new StringMap();
 	gSM_ReplayCount = new StringMap();
+	gSM_PBs = new StringMap();
 	gA_MapList = new ArrayList(ByteCountToCells(PLATFORM_MAX_PATH));
 
 	LoadConfig();
@@ -336,6 +357,7 @@ public void OnMapStart()
 		}
 	}
 	delete snapshot;
+	gSM_PBs.Clear();
 
 	if(gSM_ReplayCache != null)
 	{
@@ -434,18 +456,39 @@ public void Shavit_OnFinish_Post(int client, int style, float time, int jumps, i
 	if(track > Track_Main)
 		return;
 
+	int iStyle = WROS_ConvertStyle(style, WROS_Style_Server, WROS_Style_Offstyle);
+	if(iStyle == -1)
+		return;
+
 	if(gCV_ReCache.IntValue == ReCache_All || (gCV_ReCache.IntValue == ReCache_WR && time == Shavit_GetWorldRecord(style, track)))
 	{
 		// I think its better to recache the records when we got a new WR/PB
 		// So that players dont ask why WROS is broken :tableflip:
 
-		int iStyle = WROS_ConvertStyle(style, WROS_Style_Server, WROS_Style_Offstyle);
-		if(iStyle != -1)
-		{
-			// Maybe restart the timer when its already running?
-			CreateTimer(5.0, Timer_Refresh, iStyle, TIMER_FLAG_NO_MAPCHANGE);
-		}
+		// Maybe restart the timer when its already running?
+		CreateTimer(5.0, Timer_Refresh, iStyle, TIMER_FLAG_NO_MAPCHANGE);
 	}
+
+	DataPack pack;
+	CreateDataTimer(5.0, Timer_RefreshPB, pack, TIMER_FLAG_NO_MAPCHANGE);
+	pack.WriteCell(GetClientSerial(client));
+	pack.WriteCell(iStyle);
+}
+
+Action Timer_RefreshPB(Handle timer, DataPack pack)
+{
+	pack.Reset();
+	int client = GetClientFromSerial(pack.ReadCell());
+	int style = pack.ReadCell();
+
+	int accountid = client ? GetSteamAccountID(client) : 0;
+	if(accountid != 0)
+	{
+		char sKey[PLATFORM_MAX_PATH];
+		FormatPBKey(accountid, style, sKey, sizeof(sKey));
+		gSM_PBs.Remove(sKey);
+	}
+	return Plugin_Stop;
 }
 
 public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int topleftlength)
@@ -514,7 +557,7 @@ public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int to
 	WROS_RecordInfo info;
 	records.GetArray(0, info);
 
-	char ostext[80], sTime[32];
+	char ostext[256], sTime[32];
 	FormatSeconds(info.time, sTime, sizeof(sTime));
 	if(bFallback || bShowStyleName)
 	{
@@ -525,6 +568,14 @@ public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int to
 	else
 	{
 		FormatEx(ostext, sizeof(ostext), "%T", "OnTopLeftHUD", client, sTime, info.name);
+	}
+
+	pb_cache_t aPB;
+	int pbclient = (isReplay || IsFakeClient(target)) ? client : target;
+	if(IsSettingEnabled(client, Setting_TopLeftHUD_PB) && GetClientPB(pbclient, iStyleOffstyle, aPB))
+	{
+		FormatSeconds(aPB.fTime, sTime, sizeof(sTime));
+		Format(ostext, sizeof(ostext), "%s\n%T", ostext, "OnTopLeftHUD_PB", client, sTime, aPB.iRank);
 	}
 
 	if(IsSettingEnabled(client, Setting_AfterTopLeft))
@@ -1032,14 +1083,14 @@ ArrayList CacheMap(char mapname[PLATFORM_MAX_PATH], JSONArray json, int style, i
 void RIP_Request_Callback(HTTPResponse response, DataPack pack, const char[] error)
 {
 	bool bSuccess = (response.Status == HTTPStatus_OK);
-	HandleRequest(pack, bSuccess ? view_as<JSONObject>(response.Data) : null, bSuccess, false, response.Status, error);
+	HandleResponse(pack, bSuccess ? view_as<JSONObject>(response.Data) : null, bSuccess, false, response.Status, error);
 }
 
 public void SteamWorks_Request_Callback(Handle request, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode, DataPack pack)
 {
 	if (bFailure || !bRequestSuccessful || eStatusCode != k_EHTTPStatusCode200OK)
 	{
-		HandleRequest(pack, null, false, true, eStatusCode);
+		HandleResponse(pack, null, false, true, eStatusCode);
 		return;
 	}
 
@@ -1049,13 +1100,71 @@ public void SteamWorks_Request_Callback(Handle request, bool bFailure, bool bReq
 
 void SteamWorks_RequestBody_Callback(const char[] data, DataPack pack)
 {
-	HandleRequest(pack, JSONObject.FromString(data), true, true);
+	HandleResponse(pack, JSONObject.FromString(data), true, true);
 }
 
-void HandleRequest(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status = -1, const char[] error = "")
+void HandleResponse(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status = -1, const char[] error = "")
 {
 	pack.Reset();
+	switch(pack.ReadCell())
+	{
+		case Request_Records: HandleRequest(pack, json_response, success, steamworks, status, error);
+		case Request_PB: HandlePBRequest(pack, json_response, success, steamworks, status, error);
+	}
+}
 
+void HandlePBRequest(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status, const char[] error)
+{
+	char sKey[PLATFORM_MAX_PATH];
+	pack.ReadString(sKey, sizeof(sKey));
+	CloseHandle(pack);
+
+	pb_cache_t aPB;
+	bool bCached = gSM_PBs.GetArray(sKey, aPB, sizeof(aPB));
+
+	if(!success)
+	{
+		if(status != -1)
+			LogError("(%s) Offstyle API PB request failed (%s) status %d", steamworks ? "SteamWorks" : "SM-RIP", sKey, status);
+		if(error[0] != '\0')
+			LogError("%s", error);
+	}
+	else
+	{
+		// JSONObject.FromString returns null on a malformed body and Get errors on a missing key
+		if(json_response != null && json_response.HasKey("data"))
+		{
+			JSONArray records = view_as<JSONArray>(json_response.Get("data"));
+			aPB.fTime = 0.0;
+			aPB.iRank = 0;
+
+			if(records.Length > 0)
+			{
+				JSONObject record = view_as<JSONObject>(records.Get(0));
+				aPB.fTime = record.GetFloat("time");
+				aPB.iRank = record.IsNull("rank") ? 0 : record.GetInt("rank");
+				delete record;
+			}
+			delete records;
+		}
+
+		if(steamworks)
+		{
+			delete json_response;
+		}
+	}
+
+	// The entry was dropped or refreshed while this request was in flight, so its data is stale
+	if(!bCached || !aPB.bPending)
+		return;
+
+	aPB.bPending = false;
+	aPB.fCachedTime = GetEngineTime();
+	gSM_PBs.SetArray(sKey, aPB, sizeof(aPB));
+}
+
+void HandleRequest(DataPack pack, JSONObject json_response, bool success, bool steamworks, int status, const char[] error)
+{
 	int client = GetClientFromSerial(pack.ReadCell());
 	char mapname[PLATFORM_MAX_PATH];
 	pack.ReadString(mapname, sizeof(mapname));
@@ -1132,6 +1241,7 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	}
 
 	DataPack pack = new DataPack();
+	pack.WriteCell(Request_Records);
 	pack.WriteCell(serial);
 	pack.WriteString(mapname);
 	pack.WriteCell(style);
@@ -1144,6 +1254,45 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	ReplaceStringEx(sURL, sizeof(sURL), "{map}", mapname);
 	ReplaceStringEx(sURL, sizeof(sURL), "{style}", sStyleID);
 
+	return SendRequest(sURL, pack);
+}
+
+void RetrievePB(int accountid, int style, const char[] key)
+{
+	char sURL[230];
+	gCV_APIPBUrl.GetString(sURL, sizeof(sURL));
+
+	pb_cache_t aPB;
+	gSM_PBs.GetArray(key, aPB, sizeof(aPB));
+
+	if(sURL[0] == '\0')
+	{
+		// Stamp the entry anyway so the HUD does not retry on every frame
+		aPB.bPending = false;
+		aPB.fCachedTime = GetEngineTime();
+		gSM_PBs.SetArray(key, aPB, sizeof(aPB));
+		return;
+	}
+
+	aPB.bPending = true;
+	gSM_PBs.SetArray(key, aPB, sizeof(aPB));
+
+	DataPack pack = new DataPack();
+	pack.WriteCell(Request_PB);
+	pack.WriteString(key);
+
+	char sSteamID[32], sStyleID[11];
+	AccountIDToSteamID64(accountid, sSteamID, sizeof(sSteamID));
+	IntToString(style, sStyleID, sizeof(sStyleID));
+	ReplaceStringEx(sURL, sizeof(sURL), "{map}", gS_CurrentMap);
+	ReplaceStringEx(sURL, sizeof(sURL), "{style}", sStyleID);
+	ReplaceStringEx(sURL, sizeof(sURL), "{steamid}", sSteamID);
+
+	SendRequest(sURL, pack);
+}
+
+bool SendRequest(const char[] sURL, DataPack pack)
+{
 	if(!IsFlagEnabled(Flag_UseSteamWorks))
 	{
 		HTTPRequest http = new HTTPRequest(sURL);
@@ -1167,7 +1316,7 @@ bool RetrieveWRs(int client, const char[] mapname, int style, int menu = WROS_Me
 	)
 	{
 		delete hRequest;
-		HandleRequest(pack, null, false, true, _, "Failed to setup & send HTTP request");
+		HandleResponse(pack, null, false, true, _, "Failed to setup & send HTTP request");
 		return false;
 	}
 
@@ -1912,6 +2061,37 @@ void FormatKey(const char[] map, int style, char[] output, int maxlen)
 	FormatEx(output, maxlen, "%d%s", style, map);
 }
 
+void FormatPBKey(int accountid, int style, char[] output, int maxlen)
+{
+	FormatEx(output, maxlen, "%d_%d%s", accountid, style, gS_CurrentMap);
+}
+
+/**
+ * Returns the cached Offstyle personal best of a player on the current map, requests it when missing or expired.
+ * 
+ * @param client    Client index.
+ * @param style     Style ID in the Offstyle API.
+ * @param pb        By-reference variable to store the personal best.
+ * @return          True when a cached personal best is available, false otherwise.
+ */
+bool GetClientPB(int client, int style, pb_cache_t pb)
+{
+	int accountid = GetSteamAccountID(client);
+	if(accountid == 0)
+		return false;
+
+	char sKey[PLATFORM_MAX_PATH];
+	FormatPBKey(accountid, style, sKey, sizeof(sKey));
+
+	bool bCached = gSM_PBs.GetArray(sKey, pb, sizeof(pb));
+	if(!bCached || (!pb.bPending && pb.fCachedTime <= (GetEngineTime() - gCV_CacheTime.FloatValue)))
+	{
+		RetrievePB(accountid, style, sKey);
+	}
+
+	return bCached && pb.fTime > 0.0;
+}
+
 bool AllowReplays(int client, int style = -1, bool notify = true)
 {
 	if(!gB_DirExists || !gB_ReplayPlayback)
@@ -2053,6 +2233,7 @@ void SettingsMenu(int client, int item = 0)
 	menu.SetTitle("%T\n ", "SettingTitle", client);
 
 	AddSettingItem(menu, client, false, Setting_TopLeftHUD, "SettingItem_TopLeftHUD");
+	AddSettingItem(menu, client, false, Setting_TopLeftHUD_PB, "SettingItem_TopLeftHUD_PB");
 	AddSettingItem(menu, client, false, Setting_AfterTopLeft, "SettingItem_AfterTopLeft");
 
 	if(gA_Styles.Length > 1)

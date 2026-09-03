@@ -5,7 +5,7 @@ A [SourceMod](https://www.sourcemod.net/) plugin that integrates with the [Offst
 ## Features
 
 - **Offstyle WR browser** — Browse world records for the current map or any other map by passing a map name after the command (e.g. `!wros [mapname]`). Supports partial map names using the server's map list as reference (from `[shavit] MapChooser` when loaded, otherwise from `mapcycle.txt`)
-- **Top Left HUD integration** — Optionally shows the Offstyle WR time in the Top Left HUD
+- **Top Left HUD integration** — Optionally shows the Offstyle WR time and the player's Offstyle PB (with rank) in the Top Left HUD
 - **Replay system** — Download and watch Offstyle replays in-game via replay bots
 - **Per-player settings** — Each player can configure HUD visibility and display behavior to their preference
 - **Style mapping** — Maps Offstyle DB style IDs to your server's local shavit style indices via `wros.cfg`
