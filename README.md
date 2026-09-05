@@ -7,7 +7,7 @@ A [SourceMod](https://www.sourcemod.net/) plugin that integrates with the [Offst
 - **Offstyle WR browser** — Browse world records for the current map or any other map by passing a map name after the command (e.g. `!wros [mapname]`). Supports partial map names using the server's map list as reference (from `[shavit] MapChooser` when loaded, otherwise from `mapcycle.txt`)
 - **Top Left HUD integration** — Optionally shows the Offstyle WR time and the player's Offstyle PB (with rank) in the Top Left HUD
 - **Replay system** — Download and watch Offstyle replays in-game via replay bots
-- **Per-player settings** — Each player can configure HUD visibility and display behavior to their preference
+- **Per-player settings** — Each player can configure HUD visibility and display behavior to their preference, including a replays-only filter that hides times with no replay from both the record list and the Top Left HUD
 - **Style mapping** — Maps Offstyle DB style IDs to your server's local shavit style indices via `wros.cfg`
 - **Developer API** — Exposes natives, forwards, and a stock utility function for use in other plugins
 
@@ -70,7 +70,7 @@ The order of entries can be changed freely and will be reflected in the style se
 |---------|-------|-------------|
 | `!wros [map]` | `!oswr` | Opens the Offstyle WR browser. Without an argument, shows records for the current map. Accepts a partial map name to search. |
 | `!wrosr [map]` | — | Opens directly into replay selection. Records without a replay are greyed out and unselectable. Clicking a record immediately starts the replay. In the style selection menu, each style shows `(replay count / WR count)`. |
-| `!wrossettings` | `!wross` | Opens the players settings menu for WROS. Also accessible through SourceMod's `!settings` menu. |
+| `!wrossettings` | `!wross`, `!ossettings`, `!oss` | Opens the players settings menu for WROS. Also accessible through SourceMod's `!settings` menu. |
 
 Replay access requires the `sm_wros_getreplay` permission (Ban flag, `d`). This can be overridden in `addons/sourcemod/configs/admin_overrides.cfg`:
 ```

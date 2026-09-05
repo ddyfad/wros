@@ -114,6 +114,7 @@ enum
 	Setting_AlwaysShowStyleNames = 5,
 	Setting_DontShowForDefault,
 	Setting_TopLeftHUD_PB,
+	Setting_OnlyWithReplay,
 }
 int gI_ClientSettings[MAXPLAYERS+1];
 Cookie gH_Cookie;
@@ -237,7 +238,8 @@ public void OnPluginStart()
 		..."\n4 = Show the OS time after the WR/PB lines"
 		..."\n32 = Always show the style names"	
 		..."\n64 = Show OS time for all styles except default (Normal)"
-		..."\n128 = Show the OS personal best of the player (Top Left HUD)", 0, true, 0.0);	
+		..."\n128 = Show the OS personal best of the player (Top Left HUD)"
+		..."\n256 = Only show times that have a replay (record list and Top Left HUD)", 0, true, 0.0);
 	gCV_DefaultHUDMode = new Convar("os_default_hud_mode", "1", "Default hud mode"
 		..."\n0 = Only show when on default style"
 		..."\n1 = Show for every style"
@@ -253,6 +255,8 @@ public void OnPluginStart()
 
 	RegConsoleCmd("sm_wrossettings", Command_Settings, "Opens the wros settings menu.");
 	RegConsoleCmd("sm_wross", Command_Settings, "Opens the wros settings menu.");
+	RegConsoleCmd("sm_ossettings", Command_Settings, "Opens the wros settings menu.");
+	RegConsoleCmd("sm_oss", Command_Settings, "Opens the wros settings menu.");
 	RegConsoleCmd("sm_wros", Command_WROS, "View global world records from Offstyle's API.");
 	RegConsoleCmd("sm_oswr", Command_WROS, "View global world records from Offstyle's API.");
 	RegConsoleCmd("sm_wrosr", Command_WROSReplay, "View global world records from Offstyle's API.");
@@ -521,6 +525,12 @@ public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int to
 	bool bFallback = false;
 	bool bShowStyleName = IsSettingEnabled(client, Setting_AlwaysShowStyleNames);
 
+	// With the replay filter on, a style whose records all lack a replay counts as
+	// having nothing to show - so it takes the same path as no records at all, and
+	// AllWithFallback falls through to the default style rather than going blank.
+	bool bOnlyWithReplay = OnlyRecordsWithReplay(client);
+	int  iRecord = -1;
+
 	switch(iDisplayMode)
 	{
 		case HUDMode_OnlyShowDefault:
@@ -529,17 +539,24 @@ public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int to
 				return Plugin_Continue;
 			bShowStyleName = true;
 			iStyleOffstyle = gCV_DefaultStyle.IntValue;
+			iRecord = FindBestRecordIndex(records, bOnlyWithReplay);
 		}
 		case HUDMode_AllStyles:
 		{
 			if(!GetCachedRecords(gS_CurrentMap, iStyleOffstyle, records))
 				return Plugin_Continue;
+			iRecord = FindBestRecordIndex(records, bOnlyWithReplay);
 		}
 		case HUDMode_AllWithFallback:
 		{
-			if(!GetCachedRecords(gS_CurrentMap, iStyleOffstyle, records))
+			if(GetCachedRecords(gS_CurrentMap, iStyleOffstyle, records))
+				iRecord = FindBestRecordIndex(records, bOnlyWithReplay);
+
+			if(iRecord == -1)
 			{
 				if(!GetCachedRecords(gS_CurrentMap, gCV_DefaultStyle.IntValue, records))
+					return Plugin_Continue;
+				if((iRecord = FindBestRecordIndex(records, bOnlyWithReplay)) == -1)
 					return Plugin_Continue;
 				bFallback = true;
 				iStyleOffstyle = gCV_DefaultStyle.IntValue;
@@ -551,11 +568,15 @@ public Action Shavit_OnTopLeftHUD(int client, int target, char[] topleft, int to
 				return Plugin_Continue;
 			if(!GetCachedRecords(gS_CurrentMap, iStyleOffstyle, records))
 				return Plugin_Continue;
+			iRecord = FindBestRecordIndex(records, bOnlyWithReplay);
 		}
 	}
 
+	if(iRecord == -1)
+		return Plugin_Continue;
+
 	WROS_RecordInfo info;
-	records.GetArray(0, info);
+	records.GetArray(iRecord, info);
 
 	char ostext[256], sTime[32];
 	FormatSeconds(info.time, sTime, sizeof(sTime));
@@ -677,11 +698,20 @@ void BuildWRMenu(int client, int first_item=0)
 	Menu menu = new Menu(MenuHandler_BuildWRMenu);
 	menu.SetTitle("%T\n ", "BuildWRMenu_Title", client, gS_ClientMap[client], maxrecords, aStyle.sStyleName, totalrecords);
 
+	// The rank shown stays the record's real offstyles rank, so a filtered list
+	// reads as "1, 4, 7" rather than renumbering and hiding that times were skipped.
+	bool bOnlyWithReplay = OnlyRecordsWithReplay(client);
+
 	WROS_RecordInfo record;
 	char sDisplay[128], sTime[32], sDiff[32];
 	for (int i = 0; i < maxrecords; i++)
 	{
 		records.GetArray(i, record, sizeof(record));
+
+		if(bOnlyWithReplay && record.replay_ref[0] == '\0')
+		{
+			continue;
+		}
 
 		FormatSeconds(record.time, sTime, sizeof(sTime));
 		FormatDiff(client, record.time, record.wr_time, 3, sDiff, sizeof(sDiff));
@@ -943,7 +973,7 @@ void BuildReplayMenu(int client, int first_item=0)
 	{
 		records.GetArray(i, record, sizeof(record));
 
-		if(!IsFlagEnabled(Flag_HideWithoutReplay) || (record.replay_ref[0] != '\0'))
+		if(!OnlyRecordsWithReplay(client) || (record.replay_ref[0] != '\0'))
 		{
 			iRecords++;
 
@@ -1555,6 +1585,45 @@ public void OnClientCookiesCached(int client)
 bool IsSettingEnabled(int client, int setting)
 {
 	return view_as<bool>((1<<setting) & gI_ClientSettings[client]);
+}
+
+// Should this client only be shown records that have a replay on offstyles.net?
+// The server-wide os_flags bit forces it on for everyone; the per-client setting
+// is what Setting_OnlyWithReplay toggles.
+bool OnlyRecordsWithReplay(int client)
+{
+	return (IsFlagEnabled(Flag_HideWithoutReplay) || IsSettingEnabled(client, Setting_OnlyWithReplay));
+}
+
+// Index of the fastest record to show, honouring the replay filter. Records are
+// already sorted fastest first, so this is the first match. -1 when the filter
+// leaves nothing.
+int FindBestRecordIndex(ArrayList records, bool only_with_replay)
+{
+	if(records == null || records.Length == 0)
+	{
+		return -1;
+	}
+
+	if(!only_with_replay)
+	{
+		return 0;
+	}
+
+	WROS_RecordInfo record;
+	int iSize = records.Length;
+
+	for(int i = 0; i < iSize; i++)
+	{
+		records.GetArray(i, record, sizeof(record));
+
+		if(record.replay_ref[0] != '\0')
+		{
+			return i;
+		}
+	}
+
+	return -1;
 }
 
 bool IsFlagEnabled(int flag)
@@ -2249,6 +2318,10 @@ void SettingsMenu(int client, int item = 0)
 	AddSettingItem(menu, client, false, Setting_TopLeftHUD, "SettingItem_TopLeftHUD");
 	AddSettingItem(menu, client, false, Setting_TopLeftHUD_PB, "SettingItem_TopLeftHUD_PB");
 	AddSettingItem(menu, client, false, Setting_AfterTopLeft, "SettingItem_AfterTopLeft");
+
+	// Greyed out when os_flags already forces it server-wide - the toggle would
+	// have no visible effect.
+	AddSettingItem(menu, client, false, Setting_OnlyWithReplay, "SettingItem_OnlyWithReplay", !IsFlagEnabled(Flag_HideWithoutReplay), "Only show times that have a replay");
 
 	if(gA_Styles.Length > 1)
 	{

@@ -110,6 +110,10 @@
 	{
 		"en"		"Show your OS personal best in Top Left HUD"
 	}
+	"SettingItem_OnlyWithReplay"
+	{
+		"en"		"Only show times that have a replay"
+	}
 	"SettingItem_AfterTopLeft"
 	{
 		"en"		"Show WROS after WR & PB\n‒‒‒‒‒‒‒"
