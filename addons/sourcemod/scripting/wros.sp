@@ -1562,18 +1562,32 @@ bool IsFlagEnabled(int flag)
 	return ((gCV_Flags.IntValue & (1<<flag)) != 0); // We could add the flags as input and replace IsSettingEnabled but lets keep it for now
 }
 
-void AddSettingItem(Menu menu, int client, int is_mode, int setting, char[] translation, bool enabled = true)
+void AddSettingItem(Menu menu, int client, int is_mode, int setting, char[] translation, bool enabled = true, const char[] fallback = "")
 {
+	// SourceMod only reparses translation files on map change, so a phrase added
+	// by an update is missing until then - and %T on a missing phrase throws,
+	// which takes down the whole settings menu rather than one line of it.
+	char sLabel[128];
+
+	if(TranslationPhraseExists(translation))
+	{
+		FormatEx(sLabel, sizeof(sLabel), "%T", translation, client);
+	}
+	else
+	{
+		strcopy(sLabel, sizeof(sLabel), (fallback[0] != '\0') ? fallback : translation);
+	}
+
 	char sInfo[16], sDisplay[128];
 	if(!is_mode)
 	{
 		FormatEx(sInfo, sizeof(sInfo), "0%d", 1<<setting);
-		FormatEx(sDisplay, sizeof(sDisplay), "[%s] %T", ((gI_ClientSettings[client] & 1<<setting) > 0) ? "✓" : "✘", translation, client);
+		FormatEx(sDisplay, sizeof(sDisplay), "[%s] %s", ((gI_ClientSettings[client] & 1<<setting) > 0) ? "✓" : "✘", sLabel);
 	}
 	else
 	{
 		FormatEx(sInfo, sizeof(sInfo), "1%d", setting);
-		FormatEx(sDisplay, sizeof(sDisplay), "[%s] %T", (gI_ClientHUDMode[client] == setting) ? "✓" : "✘", translation, client);
+		FormatEx(sDisplay, sizeof(sDisplay), "[%s] %s", (gI_ClientHUDMode[client] == setting) ? "✓" : "✘", sLabel);
 	}
 	menu.AddItem(sInfo, sDisplay, enabled ? ITEMDRAW_DEFAULT : ITEMDRAW_DISABLED);
 }
