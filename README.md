@@ -71,6 +71,8 @@ The order of entries can be changed freely and will be reflected in the style se
 | `!wros [map]` | `!oswr` | Opens the Offstyle WR browser. Without an argument, shows records for the current map. Accepts a partial map name to search. |
 | `!wrosr [map]` | — | Opens directly into replay selection. Records without a replay are greyed out and unselectable. Clicking a record immediately starts the replay. In the style selection menu, each style shows `(replay count / WR count)`. |
 | `!wrossettings` | `!wross`, `!ossettings`, `!oss` | Opens the players settings menu for WROS. Also accessible through SourceMod's `!settings` menu. |
+| `!wros_keep` | — | Makes the live import permanent so it survives the map change. Same as the menu item. |
+| `!wros_undo` | — | Reverses the live import. Same as the menu item. |
 
 Replay access requires the `sm_wros_getreplay` permission (Ban flag, `d`). This can be overridden in `addons/sourcemod/configs/admin_overrides.cfg`:
 ```
@@ -78,6 +80,33 @@ Replay access requires the `sm_wros_getreplay` permission (Ban flag, `d`). This 
 "sm_wros_getreplay" "m"  // Requires "Changing the map" permission
 ```
 See [Overriding Command Access](https://wiki.alliedmods.net/Overriding_Command_Access_(Sourcemod)) for more info.
+
+---
+
+## Importing records
+
+An admin browsing `!oswr` on the current map gets an extra item on a record: **Import this time onto the server**. It writes the record into shavit's `playertimes` and, when the run beats the local WR, installs its replay so the replay bot plays it. The replay comes from the same cached download the replay viewer uses, so importing never costs an extra fetch, and the cached file is copied rather than moved so playback keeps working.
+
+Two things make this safe to hand to an admin.
+
+**Imports are ephemeral by default.** An import rolls back on map end unless someone picks **Keep this import** (or runs `!wros_keep`). A journal at `addons/sourcemod/data/wros_import/pending.txt` is written when the import lands and removed when it is kept or reversed, so an import survives neither a map change nor a crash without being confirmed. Set `os_import_persist_default 1` if you would rather imports be permanent the moment they land.
+
+**Nothing is deleted.** The replay an import displaces is moved into `data/wros_import/backup/` first, an existing backup is never overwritten, and keeping an import renames the backup to `*.superseded-<timestamp>` rather than removing it. Every replay this server recorded stays on disk.
+
+A record with no replay on offstyles.net can still be imported, with a confirmation first — the time lands on the leaderboard and the replay bot keeps whatever it was playing.
+
+| ConVar | Default | |
+|---|---|---|
+| `os_import_enable` | `1` | Turns the feature off entirely. |
+| `os_import_persist_default` | `0` | `1` makes imports permanent immediately instead of ephemeral. |
+| `os_import_blocked_styles` | *(empty)* | Local shavit style indices that must never be imported into, comma separated. Worth setting if this server also uploads to another global database (sourcejump, say), where an imported time in `playertimes` looks like a run that was set here. |
+
+Importing requires the `sm_wros_import` permission (RCON flag, `z`), overridable in `admin_overrides.cfg` the same way as `sm_wros_getreplay`:
+```
+"sm_wros_import" "m"   // Requires "Changing the map" permission
+```
+
+Watching replays and importing them are separate permissions on purpose: `sm_wros_getreplay` can be opened to everyone so ordinary players can still watch any offstyles replay, while `sm_wros_import` stays with admins.
 
 ---
 

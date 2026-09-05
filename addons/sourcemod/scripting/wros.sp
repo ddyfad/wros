@@ -35,6 +35,7 @@
 #include <shavit/replay-playback>
 #include <shavit/replay-file>
 #include <shavit/mapchooser>
+#include <shavit/rankings>
 #define REQUIRE_PLUGIN
 
 #include <ripext> // https://github.com/ErikMinekus/sm-ripext
@@ -103,6 +104,7 @@ enum struct download_queue_t
 	int iRequester;		// Serial of the requester
 	int iRetries;		// Retry counter...
 	float fTime; 		// EngineTime when we started the download, 0.0 when it was already queued
+	bool bImport;		// Fetched for an import rather than for playback (see wros-import.inc)
 }
 ArrayList gA_DownloadQueue;
 
@@ -172,6 +174,10 @@ bool gB_MapChooser = false;
 bool gB_ReplayPlayback = false;
 bool gB_FloppyAsyncLoad = false;
 bool gB_ShavitStopReplay = false; // This should include Shavit_GetClientReplayBot
+
+// Importing records into the local timer. Included down here rather than up with
+// the other includes because it reaches back into the globals and structs above.
+#include <wros-import>
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -251,6 +257,9 @@ public void OnPluginStart()
 		..."\n1 = Looping (Just don't)"
 		..."\n2 = Dynamic"
 		..."\n3 = Prop", 0, false, _, true, 3.0);
+	// Before AutoExecConfig, so the os_import_* ConVars land in cfg/sourcemod/wros.cfg
+	Import_OnPluginStart();
+
 	Convar.AutoExecConfig("wros");
 
 	RegConsoleCmd("sm_wrossettings", Command_Settings, "Opens the wros settings menu.");
@@ -283,7 +292,9 @@ public void OnPluginStart()
 
 public void OnPluginEnd()
 {
-	// Delete all incomplete replays so the plugin download them again 
+	Import_OnPluginEnd();
+
+	// Delete all incomplete replays so the plugin download them again
 	if(gA_DownloadQueue	!= null)
 	{
 		download_queue_t aQueue;
@@ -293,6 +304,13 @@ public void OnPluginEnd()
 			DeleteFile(aQueue.sPath);
 		}
 	}
+}
+
+// OnConfigsExecuted does not fire for a plugin loaded mid-map, which would leave
+// imports disabled until the next map change after every `sm plugins load`.
+public void OnAllPluginsLoaded()
+{
+	Import_ConnectDatabase();
 }
 
 public void OnLibraryAdded(const char[] name)
@@ -377,6 +395,14 @@ public void OnMapStart()
 		delete snapshot;
 		delete gSM_ReplayCache;
 	}
+
+	Import_OnMapStart();
+}
+
+// An ephemeral import lives exactly as long as the map it was made on.
+public void OnMapEnd()
+{
+	Import_OnMapEnd();
 }
 
 public void OnConfigsExecuted()
@@ -423,6 +449,10 @@ public void OnConfigsExecuted()
 		}
 		delete hDir;
 	}
+
+	// Last, because it needs shavit's database handle, which is only up once the
+	// timer has run its own OnConfigsExecuted.
+	Import_OnConfigsExecuted();
 }
 
 public void Shavit_OnReplayStart(int ent, int type, bool delay_elapsed)
@@ -826,6 +856,9 @@ void MenuHandler_BuildWRMenu(Menu menu, MenuAction action, int client, int param
 				submenu.AddItem(sInfo, sDisplay, (record.replay_ref[0] != '\0') ? ITEMDRAW_DEFAULT : ITEMDRAW_DISABLED); // GetReplay checks for the map
 			}
 
+			// Import / keep / undo, for admins, on the current map only.
+			Import_AddMenuItems(submenu, client, record);
+
 			submenu.ExitBackButton = true;
 			submenu.Display(client, MENU_TIME_FOREVER);
 
@@ -877,6 +910,25 @@ int MenuHandler_RecordInfo(Menu menu, MenuAction action, int client, int param2)
 				case '3':
 				{
 					GetReplay(client, info[1]);
+				}
+				// Import, keep and undo all change which of the three items
+				// belongs on this menu, and two of them finish asynchronously, so
+				// the menu is closed instead of redisplayed with stale items. The
+				// outcome is reported in chat.
+				case '5':
+				{
+					Import_OnRecordSelected(client, info[1]);
+					return 0;
+				}
+				case '6':
+				{
+					Command_ImportKeep(client, 0);
+					return 0;
+				}
+				case '7':
+				{
+					Command_ImportUndo(client, 0);
+					return 0;
 				}
 			}
 
@@ -1846,6 +1898,14 @@ void OnDownloadFinished_Callback(HTTPStatus status, any value, const char[] erro
 
 void DownloadFinished(int client, bool success, download_queue_t queue, float time_elapsed)
 {
+	// An import queued this one. It has to run whether or not the requester is
+	// still connected, and it does not start a replay bot.
+	if(queue.bImport)
+	{
+		Import_OnReplayDownloaded(success, queue);
+		return;
+	}
+
 	if(client)
 	{
 		if(!success)

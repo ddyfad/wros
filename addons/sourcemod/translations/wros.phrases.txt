@@ -256,4 +256,135 @@
 		"#format"	"{1:s}"
 		"en"		"{ttext}Couldn't find map(s) with '{1}'"
 	}
+	
+	// Import (wros-import.inc)
+	"RecordInfo_Item_Import"
+	{
+		"en"		"Import this time onto the server"
+	}
+	"RecordInfo_Item_Import_NoReplay"
+	{
+		"en"		"Import this time onto the server (no replay)"
+	}
+	"RecordInfo_Item_ImportKeep"
+	{
+		"en"		"Keep this import (survives the map change)"
+	}
+	"RecordInfo_Item_ImportUndo"
+	{
+		"en"		"Undo this import"
+	}
+	"Import_NoReplay_Title"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{1} by {2} has no replay on offstyles.net.\n \nThe time will be imported, but the replay bot\nkeeps playing whatever it has now.\n \nImport anyway?"
+	}
+	"Import_NoReplay_Yes"
+	{
+		"en"		"Yes - import the time only"
+	}
+	"Import_NoReplay_No"
+	{
+		"en"		"No - go back"
+	}
+	"Chat_Import_NoAccess"
+	{
+		"en"		"{dodgerblue}[WROS]{white} You cannot import that record here."
+	}
+	"Chat_Import_Busy"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Another import is still running, try again in a moment."
+	}
+	"Chat_Import_PendingFirst"
+	{
+		"en"		"{dodgerblue}[WROS]{white} There is already an import on this map. Keep it or undo it first."
+	}
+	"Chat_Import_Downloading"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Downloading the replay for this import..."
+	}
+	"Chat_Import_Skipped"
+	{
+		"#format"	"{1:s},{2:s},{3:s}"
+		"en"		"{dodgerblue}[WROS]{white} Skipped: {1} already has {2} here, and offstyles has {3}."
+	}
+	"Chat_Import_NoReplayFile"
+	{
+		"en"		"{dodgerblue}[WROS]{white} The replay could not be fetched, importing the time only."
+	}
+	"Chat_Import_ReplayDownloadFailed"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Replay download failed, importing the time only."
+	}
+	"Chat_Import_ReplayUnusable"
+	{
+		"#format"	"{1:s}"
+		"en"		"{dodgerblue}[WROS]{white} Replay unusable ({1}), importing the time only."
+	}
+	"Chat_Import_ReplayInstallFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"{dodgerblue}[WROS]{white} Time imported, but the replay could not be installed ({1})."
+	}
+	"Chat_Import_Failed_Lookup"
+	{
+		"en"		"{dodgerblue}[WROS]{fullred} Import failed: could not read the existing time."
+	}
+	"Chat_Import_Failed_User"
+	{
+		"en"		"{dodgerblue}[WROS]{fullred} Import failed: could not create the user row."
+	}
+	"Chat_Import_Failed_Write"
+	{
+		"en"		"{dodgerblue}[WROS]{fullred} Import failed: could not write the time. Check the error log."
+	}
+	"Chat_Import_Done_WR"
+	{
+		"#format"	"{1:s},{2:s},{3:s}"
+		"en"		"{dodgerblue}[WROS]{white} Imported {1} by {2} ({3}) as the new WR, replay installed."
+	}
+	"Chat_Import_Done_NotWR"
+	{
+		"#format"	"{1:s},{2:s},{3:s}"
+		"en"		"{dodgerblue}[WROS]{white} Imported {1} by {2} ({3}). Not a WR, so no replay was installed."
+	}
+	"Chat_Import_Done_NoReplay"
+	{
+		"#format"	"{1:s},{2:s},{3:s}"
+		"en"		"{dodgerblue}[WROS]{white} Imported {1} by {2} ({3}). The replay bot is unchanged."
+	}
+	"Chat_Import_Hint_Ephemeral"
+	{
+		"en"		"{dodgerblue}[WROS]{white} This import is undone on map change. Use {lightgreen}!wros_keep{white} to make it permanent, or {lightgreen}!wros_undo{white} to reverse it now."
+	}
+	"Chat_Import_Hint_Undo"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Use {lightgreen}!wros_undo{white} to reverse this while you are still on this map."
+	}
+	"Chat_Import_NothingToUndo"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Nothing to undo."
+	}
+	"Chat_Import_NothingToKeep"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Nothing to keep."
+	}
+	"Chat_Import_Kept"
+	{
+		"#format"	"{1:s}"
+		"en"		"{dodgerblue}[WROS]{white} Kept the import of {1}'s time. It now survives the map change."
+	}
+	"Chat_Import_Undone"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{dodgerblue}[WROS]{white} Reversed the import of {1} by {2}."
+	}
+	"Chat_Import_UndoFailed"
+	{
+		"en"		"{dodgerblue}[WROS]{fullred} Undo failed, check the error log."
+	}
+	"Chat_Import_UndoNoReplay"
+	{
+		"en"		"{dodgerblue}[WROS]{white} Time reverted, but the previous replay could not be restored. Check data/wros_import/backup."
+	}
 }
